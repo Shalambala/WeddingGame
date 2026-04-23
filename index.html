@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Fixed Image</title>
+    <title>Wedding Run - Image Fix</title>
     <style>
         body { 
             margin: 0; padding: 0; overflow: hidden; 
@@ -52,16 +52,18 @@
     let ground, speed = 7;
     let obs = [], cl = [];
 
-    // Загрузка рекорда
+    // Рекорд
     let highscore = 0;
     try {
         highscore = localStorage.getItem("wedding_run_hs") || 0;
-    } catch (e) { console.warn("LocalStorage access denied"); }
+    } catch (e) { console.warn("Local storage blocked"); }
 
-    // --- ПРАВИЛЬНАЯ РАБОТА С КАРТИНКОЙ ---
+    // --- ИСПРАВЛЕННАЯ ЗАГРУЗКА КАРТИНКИ ---
     const obstacleImg = new Image();
-    // Это ПРЯМАЯ ссылка на само изображение (файл .png)
-    obstacleImg.src = 'https://i.ibb.co/Lkvm8pB/bc36vHv.png'; 
+    obstacleImg.crossOrigin = "anonymous"; // Разрешаем загрузку с другого домена
+    
+    // Попробуем альтернативную прямую ссылку
+    obstacleImg.src = 'https://i.postimg.cc/856v80M9/bc36vHv.png'; 
 
     const p = { x: 80, y: 0, w: 50, h: 70, dy: 0, canJump: false };
 
@@ -119,7 +121,7 @@
             speed += 0.001;
         }
 
-        // Игрок (Невеста)
+        // Невеста
         ctx.fillStyle = "#ff69b4";
         ctx.fillRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
@@ -129,11 +131,11 @@
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
             
-            // Проверка: загрузилась ли картинка и не является ли она "битой"
-            if (obstacleImg.complete && obstacleImg.naturalWidth !== 0) {
+            // Проверка загрузки и размеров картинки
+            if (obstacleImg.complete && obstacleImg.naturalWidth > 1) {
                 ctx.drawImage(obstacleImg, o.x, ground - o.h, o.w, o.h);
             } else {
-                // Если картинка не загрузилась, рисуем аккуратный черный квадрат
+                // Если картинка все еще логотип или не грузится — рисуем черный квадрат
                 ctx.fillStyle = "#000";
                 ctx.fillRect(o.x, ground - o.h, o.w, o.h);
             }
