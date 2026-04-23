@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Исправленный Рестарт</title>
+    <title>Wedding Run - Final Stable Build</title>
     <style>
         body { 
             margin: 0; padding: 0; overflow: hidden; 
@@ -52,14 +52,21 @@
     let ground, speed = 7;
     let obs = [], cl = [];
 
-    // Загрузка рекорда
+    // Рекорд
     let highscore = 0;
     try {
         highscore = localStorage.getItem("wedding_run_hs") || 0;
-    } catch (e) { console.warn("LocalStorage недоступен"); }
+    } catch (e) { console.warn("LocalStorage blocked"); }
 
+    // --- РАБОТА С КАРТИНКОЙ ---
     const obstacleImg = new Image();
+    // Используем проверенную прямую ссылку на PNG
     obstacleImg.src = 'https://i.ibb.co/9kS7m9yD/bc36vHv.png'; 
+    
+    // Флаг успешной загрузки
+    let imgLoaded = false;
+    obstacleImg.onload = () => { imgLoaded = true; };
+    obstacleImg.onerror = () => { console.error("Не удалось загрузить картинку препятствия"); };
 
     const p = { x: 80, y: 0, w: 50, h: 70, dy: 0, canJump: false };
 
@@ -70,51 +77,35 @@
         if (!active) p.y = ground - p.h;
     }
 
-    // Функция ПЕРЕЗАГРУЗКИ
-    function triggerRestart() {
-        active = false;
-        over = false;
-        // Используем небольшой таймаут для стабильности
-        setTimeout(() => {
-            window.location.reload();
-        }, 10);
-    }
-
     function handleAction(e) {
-        // Если это клавиатура, реагируем только на Пробел
         if (e.type === "keydown" && e.code !== "Space") return;
-        
-        if (e.type === "keydown") e.preventDefault(); // чтобы страница не скроллилась от пробела
+        if (e.type === "keydown") e.preventDefault();
 
         if (!active) {
             active = true;
             startDiv.style.display = "none";
             loop();
         } else if (over) {
-            triggerRestart();
+            window.location.reload();
         } else if (p.canJump) {
             p.dy = -18;
             p.canJump = false;
         }
     }
 
-    // Слушатели событий
     window.addEventListener("mousedown", handleAction);
     window.addEventListener("keydown", handleAction);
-
     window.addEventListener("resize", resize);
     resize();
 
-    // Генерация препятствий
     setInterval(() => {
         if (!active || over) return;
-        obs.push({ x: canvas.width, w: 50, h: 60 });
+        obs.push({ x: canvas.width, w: 55, h: 55 }); // Квадратное препятствие
         if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 120, r: 10 });
     }, 1500);
 
     function loop() {
-        if (!active) return; // Остановить отрисовку, если не активна
-
+        if (!active) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Пол
@@ -133,7 +124,7 @@
             speed += 0.001;
         }
 
-        // Персонаж
+        // Игрок
         ctx.fillStyle = "#ff69b4";
         ctx.fillRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
@@ -142,12 +133,15 @@
         // Препятствия
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
-            if (obstacleImg.complete) {
+            
+            if (imgLoaded) {
                 ctx.drawImage(obstacleImg, o.x, ground - o.h, o.w, o.h);
             } else {
+                // Если картинка не подгрузилась — рисуем черный квадрат
                 ctx.fillStyle = "#000";
                 ctx.fillRect(o.x, ground - o.h, o.w, o.h);
             }
+
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
                 over = true;
             }
@@ -175,7 +169,6 @@
                 highscore = dist;
                 try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
             }
-
             ctx.fillStyle = "rgba(0,0,0,0.8)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
