@@ -2,15 +2,17 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spring in Mountains</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Spring in Mountains - iOS Fix</title>
     <style>
         body { 
             margin: 0; 
             padding: 0; 
             overflow: hidden; 
-            /* Критично для мобильных: отключает скролл и жесты браузера */
             touch-action: none; 
+            -webkit-touch-callout: none; /* Отключает контекстное меню на iOS */
+            -webkit-user-select: none;   /* Отключает выделение текста */
+            user-select: none;
             background-image: url('background.jpg'); 
             background-size: 100% 100%; 
             background-position: center; 
@@ -19,19 +21,16 @@
             background-color: #87CEEB; 
             font-family: sans-serif;
         }
-        canvas { 
-            display: block; 
-            background: transparent; 
-        }
+        canvas { display: block; background: transparent; }
         #ui { 
             position: fixed; top: 10px; left: 10px; color: white; 
             font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px #000;
             pointer-events: none; z-index: 10;
         }
         #start { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7); 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); 
             color: white; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; z-index: 100; cursor: pointer;
+            justify-content: center; align-items: center; z-index: 100;
             text-align: center; padding: 20px;
         }
     </style>
@@ -46,7 +45,7 @@
 
 <div id="start">
     <h1 style="color: #ff69b4; font-size: 32px; margin: 0;">⛰️ Весна в горах</h1>
-    <p>Нажми на экран или ПРОБЕЛ для старта</p>
+    <p style="font-size: 20px;">Нажми на экран для старта</p>
 </div>
 
 <canvas id="g"></canvas>
@@ -65,54 +64,67 @@
     let obs = [], cl = [];
 
     let highscore = 0;
-    try {
-        highscore = localStorage.getItem("wedding_run_hs") || 0;
-    } catch (e) {}
+    try { highscore = localStorage.getItem("wedding_run_hs") || 0; } catch (e) {}
 
-    // Загрузка ресурсов
     const cyclistImg = new Image();
     cyclistImg.src = 'jumpover.png'; 
-
     const coinImg = new Image();
     coinImg.src = 'coin.png'; 
 
-    const p = { x: 50, y: 0, w: 60, h: 60, dy: 0, canJump: false };
+    const p = { x: 50, y: 0, w: 55, h: 55, dy: 0, canJump: false };
 
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         ground = canvas.height - 60;
         if (!active) p.y = ground - p.h;
-        
-        if(window.innerWidth < 600) {
-            p.w = 55; p.h = 55;
+    }
+
+    function jump() {
+        if (p.canJump && active && !over) {
+            p.dy = -17;
+            p.canJump = false;
         }
     }
 
-    // Обработка прыжка и старта
-    function handleAction(e) {
-        // Запрещаем стандартные действия браузера (важно для iOS)
-        if (e.cancelable) e.preventDefault();
-
-        if (e.type === "keydown" && e.code !== "Space") return;
-
+    function startGame() {
         if (!active) {
             active = true;
             startDiv.style.display = "none";
             loop();
         } else if (over) {
             window.location.reload();
-        } else if (p.canJump) {
-            p.dy = -17; 
-            p.canJump = false;
         }
     }
 
-    // pointerdown работает и для тапа, и для клика мыши
-    window.addEventListener("pointerdown", handleAction, { passive: false });
-    window.addEventListener("keydown", handleAction);
-    window.addEventListener("resize", resize);
+    // УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК ДЛЯ IOS
+    function handleTouch(e) {
+        if (e.cancelable) e.preventDefault();
+        
+        if (!active || over) {
+            startGame();
+        } else {
+            jump();
+        }
+    }
+
+    // Слушатели специально для iPhone
+    window.addEventListener("touchstart", handleTouch, { passive: false });
     
+    // Слушатели для ПК
+    window.addEventListener("mousedown", (e) => {
+        if (e.button === 0) { // Только левая кнопка
+            if (!active || over) startGame(); else jump();
+        }
+    });
+    
+    window.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+            if (!active || over) startGame(); else jump();
+        }
+    });
+
+    window.addEventListener("resize", resize);
     resize();
 
     setInterval(() => {
@@ -125,7 +137,6 @@
         if (!active) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Линия земли
         ctx.fillStyle = "rgba(255, 105, 180, 0.6)";
         ctx.fillRect(0, ground, canvas.width, 8);
 
@@ -141,7 +152,6 @@
             speed += 0.0015;
         }
 
-        // Отрисовка игрока (Велосипедист)
         if (cyclistImg.complete && cyclistImg.naturalWidth !== 0) {
             ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
         } else {
@@ -149,19 +159,13 @@
             ctx.fillRect(p.x, p.y, p.w, p.h);
         }
 
-        // Отрисовка препятствий (Голубые квадраты)
         ctx.fillStyle = "#00BFFF";
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
             ctx.fillRect(o.x, ground - o.h, o.w, o.h);
-            
-            // Столкновение
-            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
-                over = true;
-            }
+            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
         });
 
-        // Отрисовка монет
         cl.forEach((c, i) => {
             if (!over) c.x -= speed;
             if (coinImg.complete && coinImg.naturalWidth !== 0) {
@@ -170,7 +174,6 @@
                 ctx.fillStyle = "#FFD700";
                 ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill();
             }
-            
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
             if (!over && Math.sqrt(dx*dx + dy*dy) < 45) {
@@ -197,7 +200,7 @@
             ctx.font = "20px Arial";
             ctx.fillText("Дистанция: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 20);
             ctx.fillStyle = "#ff69b4";
-            ctx.fillText("Тапни для рестарта", canvas.width / 2, canvas.height / 2 + 70);
+            ctx.fillText("Нажми для рестарта", canvas.width / 2, canvas.height / 2 + 70);
         }
         requestAnimationFrame(loop);
     }
