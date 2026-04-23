@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Рекорды и Исправленный Рестарт</title>
+    <title>Wedding Run - Исправленный Рестарт</title>
     <style>
         body { 
             margin: 0; padding: 0; overflow: hidden; 
@@ -70,15 +70,127 @@
         if (!active) p.y = ground - p.h;
     }
 
-    function startGame() {
+    // Функция ПЕРЕЗАГРУЗКИ
+    function triggerRestart() {
+        active = false;
+        over = false;
+        // Используем небольшой таймаут для стабильности
+        setTimeout(() => {
+            window.location.reload();
+        }, 10);
+    }
+
+    function handleAction(e) {
+        // Если это клавиатура, реагируем только на Пробел
+        if (e.type === "keydown" && e.code !== "Space") return;
+        
+        if (e.type === "keydown") e.preventDefault(); // чтобы страница не скроллилась от пробела
+
         if (!active) {
             active = true;
             startDiv.style.display = "none";
             loop();
         } else if (over) {
-            location.reload(); // Перезапуск при проигрыше
+            triggerRestart();
+        } else if (p.canJump) {
+            p.dy = -18;
+            p.canJump = false;
         }
     }
 
-    // Обработка ввода (Мышь и Пробел)
-    window.addEventListener("mousedown", (e) => {
+    // Слушатели событий
+    window.addEventListener("mousedown", handleAction);
+    window.addEventListener("keydown", handleAction);
+
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Генерация препятствий
+    setInterval(() => {
+        if (!active || over) return;
+        obs.push({ x: canvas.width, w: 50, h: 60 });
+        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 120, r: 10 });
+    }, 1500);
+
+    function loop() {
+        if (!active) return; // Остановить отрисовку, если не активна
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Пол
+        ctx.fillStyle = "rgba(255, 105, 180, 0.7)";
+        ctx.fillRect(0, ground, canvas.width, 10);
+
+        if (!over) {
+            p.dy += 0.8;
+            p.y += p.dy;
+            if (p.y > ground - p.h) {
+                p.y = ground - p.h;
+                p.dy = 0;
+                p.canJump = true;
+            }
+            dist += speed * 0.01;
+            speed += 0.001;
+        }
+
+        // Персонаж
+        ctx.fillStyle = "#ff69b4";
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.fillRect(p.x - 15, p.y + 10, 15, 40);
+
+        // Препятствия
+        obs.forEach((o, i) => {
+            if (!over) o.x -= speed;
+            if (obstacleImg.complete) {
+                ctx.drawImage(obstacleImg, o.x, ground - o.h, o.w, o.h);
+            } else {
+                ctx.fillStyle = "#000";
+                ctx.fillRect(o.x, ground - o.h, o.w, o.h);
+            }
+            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
+                over = true;
+            }
+        });
+
+        // Монетки
+        cl.forEach((c, i) => {
+            if (!over) c.x -= speed;
+            ctx.fillStyle = "#FFD700";
+            ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+            let dx = (p.x + p.w/2) - c.x;
+            let dy = (p.y + p.h/2) - c.y;
+            if (!over && Math.sqrt(dx*dx + dy*dy) < 40) {
+                coins++;
+                cl.splice(i, 1);
+            }
+        });
+
+        document.getElementById("c").innerText = coins;
+        document.getElementById("d").innerText = Math.floor(dist);
+        document.getElementById("hs").innerText = Math.floor(highscore);
+
+        if (over) {
+            if (dist > highscore) {
+                highscore = dist;
+                try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
+            }
+
+            ctx.fillStyle = "rgba(0,0,0,0.8)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.font = "bold 30px Arial";
+            ctx.fillText("ИГРА ОКОНЧЕНА", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.font = "24px Arial";
+            ctx.fillText("Результат: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 30);
+            ctx.fillStyle = "#ff69b4";
+            ctx.fillText("Нажми МЫШКОЙ или ПРОБЕЛ для рестарта", canvas.width / 2, canvas.height / 2 + 80);
+        }
+
+        requestAnimationFrame(loop);
+    }
+})();
+</script>
+</body>
+</html>
