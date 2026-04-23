@@ -3,46 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Spring in Mountains - iOS Fix</title>
+    <title>Spring in Mountains - Final iOS Fix</title>
     <style>
-        body { 
+        /* Блокируем любые системные движения страницы */
+        html, body { 
             margin: 0; 
             padding: 0; 
+            width: 100%;
+            height: 100%;
             overflow: hidden; 
-            /* Предотвращаем системные жесты Safari */
+            position: fixed; /* Критично для iOS: предотвращает "прыгающий" скролл */
             touch-action: none; 
-            -webkit-touch-callout: none; 
-            -webkit-user-select: none;   
+            -webkit-user-select: none;
             user-select: none;
-            background-image: url('background.jpg'); 
-            background-size: cover; 
-            background-position: center; 
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            background-color: #87CEEB; 
+            background-color: #87CEEB;
             font-family: sans-serif;
         }
+
+        #bg-layer {
+            position: fixed;
+            inset: 0;
+            background-image: url('background.jpg'); 
+            background-size: cover; 
+            background-position: center;
+            z-index: -1;
+        }
+
         canvas { 
             display: block; 
-            background: transparent; 
             touch-action: none;
-            /* Убираем серую вспышку при нажатии в Safari */
             -webkit-tap-highlight-color: transparent; 
         }
+
         #ui { 
-            position: fixed; top: 10px; left: 10px; color: white; 
-            font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px #000;
+            position: fixed; top: env(safe-area-inset-top, 10px); left: 10px; 
+            color: white; font-size: 18px; font-weight: bold; 
+            text-shadow: 2px 2px 4px #000;
             pointer-events: none; z-index: 10;
         }
+
         #start { 
             position: fixed; inset: 0; background: rgba(0,0,0,0.8); 
             color: white; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; z-index: 100;
             text-align: center; padding: 20px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
+
+<div id="bg-layer"></div>
 
 <div id="ui">
     Монеты: <span id="c">0</span> | 
@@ -52,7 +63,7 @@
 
 <div id="start">
     <h1 style="color: #ff69b4; font-size: 32px; margin: 0;">⛰️ Весна в горах</h1>
-    <p style="font-size: 20px;">Нажми на экран для старта</p>
+    <p style="font-size: 20px;">Нажми на экран, чтобы начать</p>
 </div>
 
 <canvas id="g"></canvas>
@@ -69,8 +80,8 @@
     let dist = 0;
     let ground, speed = 7;
     let obs = [], cl = [];
-
     let highscore = 0;
+
     try { highscore = localStorage.getItem("wedding_run_hs") || 0; } catch (e) {}
 
     const cyclistImg = new Image();
@@ -94,8 +105,7 @@
         }
     }
 
-    function initGame() {
-        // Сброс всех параметров вместо перезагрузки страницы
+    function resetState() {
         active = true;
         over = false;
         coins = 0;
@@ -103,42 +113,41 @@
         speed = 7;
         obs = [];
         cl = [];
-        p.y = ground - p.h;
         p.dy = 0;
+        p.y = ground - p.h;
         startDiv.style.display = "none";
     }
 
-    // Обработчик для iOS и тач-устройств
-    function handleTouch(e) {
-        // Запрещаем дефолтное поведение только если игра идет, 
-        // чтобы не ломать системные жесты в меню
-        if (active && !over) {
-            if (e.cancelable) e.preventDefault();
-            jump();
+    // Обработка клика/тача
+    function handleAction(e) {
+        // Предотвращаем стандартные действия браузера
+        if (e.cancelable) e.preventDefault();
+
+        if (!active || over) {
+            resetState();
         } else {
-            initGame();
+            jump();
         }
     }
 
-    // Слушатели событий
-    window.addEventListener("touchstart", handleTouch, { passive: false });
-    
-    window.addEventListener("mousedown", (e) => {
-        if (e.button === 0) {
-            if (!active || over) initGame(); else jump();
-        }
+    // Слушаем события и на документе, и на блоке старта для надежности
+    document.addEventListener("touchstart", handleAction, { passive: false });
+    document.addEventListener("mousedown", (e) => {
+        if (e.button === 0) handleAction(e);
     });
-    
+
     window.addEventListener("keydown", (e) => {
-        if (e.code === "Space") {
-            if (!active || over) initGame(); else jump();
-        }
+        if (e.code === "Space") handleAction(e);
     });
 
     window.addEventListener("resize", resize);
+    
+    // Инициализация размеров
     resize();
+    // Повторный вызов через долю секунды, так как iOS Safari 
+    // не сразу отдает корректные размеры innerHeight
+    setTimeout(resize, 300);
 
-    // Интервал создания препятствий
     setInterval(() => {
         if (!active || over) return;
         obs.push({ x: canvas.width, w: 45, h: 45 });
@@ -146,14 +155,14 @@
     }, 1400);
 
     function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         if (!active) {
             requestAnimationFrame(loop);
             return;
         }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Отрисовка земли
+        // Земля
         ctx.fillStyle = "rgba(255, 105, 180, 0.6)";
         ctx.fillRect(0, ground, canvas.width, 8);
 
@@ -169,8 +178,8 @@
             speed += 0.0015;
         }
 
-        // Игрок
-        if (cyclistImg.complete && cyclistImg.naturalWidth !== 0) {
+        // Персонаж
+        if (cyclistImg.complete && cyclistImg.naturalWidth > 0) {
             ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
         } else {
             ctx.fillStyle = "#ffdd00";
@@ -183,33 +192,32 @@
             let o = obs[i];
             if (!over) o.x -= speed;
             ctx.fillRect(o.x, ground - o.h, o.w, o.h);
-            
-            // Коллизия
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
-            
-            // Удаление ушедших за экран
             if (o.x + o.w < 0) obs.splice(i, 1);
         }
 
         // Монеты
-        cl.forEach((c, i) => {
+        for (let i = cl.length - 1; i >= 0; i--) {
+            let c = cl[i];
             if (!over) c.x -= speed;
-            if (coinImg.complete && coinImg.naturalWidth !== 0) {
+            
+            if (coinImg.complete && coinImg.naturalWidth > 0) {
                 ctx.drawImage(coinImg, c.x - c.r, c.y - c.r, c.r*2, c.r*2);
             } else {
                 ctx.fillStyle = "#FFD700";
                 ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill();
             }
-            
+
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
             if (!over && Math.sqrt(dx*dx + dy*dy) < 45) {
                 coins++;
                 cl.splice(i, 1);
+            } else if (c.x + c.r < 0) {
+                cl.splice(i, 1);
             }
-        });
+        }
 
-        // UI
         document.getElementById("c").innerText = coins;
         document.getElementById("d").innerText = Math.floor(dist);
         document.getElementById("hs").innerText = Math.floor(highscore);
@@ -232,8 +240,6 @@
         }
         requestAnimationFrame(loop);
     }
-    
-    // Запускаем цикл сразу, но он будет ждать active = true
     loop();
 })();
 </script>
