@@ -109,7 +109,8 @@
     }
 
     // Добавляем поддержку касания пальцем
-    window.addEventListener("touchstart", handleAction, { passive: false });
+    window.addEventListener("pointerdown", handleAction, { passive: false });
+    //window.addEventListener("touchstart", handleAction, { passive: false });
     window.addEventListener("mousedown", handleAction);
     window.addEventListener("keydown", handleAction);
     
