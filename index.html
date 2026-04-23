@@ -2,16 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Local Assets</title>
+    <title>Wedding Run - Final Version</title>
     <style>
         body { 
-            margin: 0; padding: 0; overflow: hidden; 
-            /* Используем локальный файл для фона страницы, если нужно, 
-               но в игре мы рисуем персонажа на Canvas */
-            background-color: #87CEEB; 
-            font-family: sans-serif;
+        margin: 0; 
+        padding: 0; 
+        overflow: hidden; 
+        background-image: url('background.jpg'); 
+        /* Растягивает картинку ровно по размеру окна без обрезки */
+        background-size: 100% 100%; 
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-position: center;
+        background-color: #87CEEB; 
+        font-family: sans-serif;
         }
-        canvas { display: block; background: #87CEEB; }
+        canvas { 
+            display: block; 
+            background: transparent; 
+        }
         #ui { 
             position: fixed; top: 20px; left: 20px; color: white; 
             font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px #000;
@@ -52,20 +61,20 @@
     let ground, speed = 7;
     let obs = [], cl = [];
 
-    // Загрузка рекорда
+    // Загрузка рекорда из памяти браузера
     let highscore = 0;
     try {
         highscore = localStorage.getItem("wedding_run_hs") || 0;
-    } catch (e) {}
+    } catch (e) {
+        console.warn("LocalStorage недоступен (это нормально при запуске файла с диска)");
+    }
 
-    // --- ПОДКЛЮЧЕНИЕ ВАШИХ КАРТИНОК ---
-    const brideImg = new Image();
-    brideImg.src = 'bride.jpg'; // Персонаж
-
+    // Картинка препятствия
     const obstacleImg = new Image();
-    obstacleImg.src = 'jumpover.png'; // Препятствие
+    obstacleImg.src = 'jumpover.png'; 
 
-    const p = { x: 80, y: 0, w: 60, h: 80, dy: 0, canJump: false };
+    // Параметры персонажа (классическая розовая невеста)
+    const p = { x: 80, y: 0, w: 50, h: 70, dy: 0, canJump: false };
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -74,16 +83,17 @@
         if (!active) p.y = ground - p.h;
     }
 
+    // Универсальная функция действия (старт, прыжок, рестарт)
     function handleAction(e) {
         if (e.type === "keydown" && e.code !== "Space") return;
-        if (e.type === "keydown") e.preventDefault();
+        if (e.type === "keydown") e.preventDefault(); // чтобы пробел не скроллил страницу
 
         if (!active) {
             active = true;
             startDiv.style.display = "none";
             loop();
         } else if (over) {
-            window.location.reload();
+            window.location.reload(); // Полная перезагрузка для сброса всех параметров
         } else if (p.canJump) {
             p.dy = -18;
             p.canJump = false;
@@ -95,6 +105,7 @@
     window.addEventListener("resize", resize);
     resize();
 
+    // Генерация препятствий и монет
     setInterval(() => {
         if (!active || over) return;
         obs.push({ x: canvas.width, w: 50, h: 50 });
@@ -105,11 +116,12 @@
         if (!active) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Дорога
-        ctx.fillStyle = "#ff69b4";
+        // Рисуем пол (розовая линия)
+        ctx.fillStyle = "rgba(255, 105, 180, 0.7)";
         ctx.fillRect(0, ground, canvas.width, 10);
 
         if (!over) {
+            // Физика прыжка
             p.dy += 0.8;
             p.y += p.dy;
             if (p.y > ground - p.h) {
@@ -117,37 +129,40 @@
                 p.dy = 0;
                 p.canJump = true;
             }
+            // Увеличение дистанции и скорости
             dist += speed * 0.01;
             speed += 0.001;
         }
 
-        // Рисуем НЕВЕСТУ (bride.jpg)
-        if (brideImg.complete) {
-            ctx.drawImage(brideImg, p.x, p.y, p.w, p.h);
-        } else {
-            ctx.fillStyle = "#ff69b4";
-            ctx.fillRect(p.x, p.y, p.w, p.h);
-        }
+        // Отрисовка игрока (розовый прямоугольник + фата)
+        ctx.fillStyle = "#ff69b4";
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)"; // Белая фата
+        ctx.fillRect(p.x - 15, p.y + 10, 15, 40);
 
-        // Рисуем ПРЕПЯТСТВИЯ (jumpover.png)
+        // Отрисовка препятствий (jumpover.png)
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
             
-            if (obstacleImg.complete) {
+            if (obstacleImg.complete && obstacleImg.naturalWidth !== 0) {
                 ctx.drawImage(obstacleImg, o.x, ground - o.h, o.w, o.h);
             } else {
-                ctx.fillStyle = "#333";
+                ctx.fillStyle = "#333"; // Запасной вариант (серый блок)
                 ctx.fillRect(o.x, ground - o.h, o.w, o.h);
             }
 
-            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
+            // Проверка столкновения
+            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
+                over = true;
+            }
         });
 
-        // Монетки
+        // Отрисовка монет
         cl.forEach((c, i) => {
             if (!over) c.x -= speed;
             ctx.fillStyle = "#FFD700";
             ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+            
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
             if (!over && Math.sqrt(dx*dx + dy*dy) < 40) {
@@ -156,21 +171,28 @@
             }
         });
 
+        // Обновление текстового интерфейса
         document.getElementById("c").innerText = coins;
         document.getElementById("d").innerText = Math.floor(dist);
         document.getElementById("hs").innerText = Math.floor(highscore);
 
         if (over) {
+            // Сохранение рекорда при проигрыше
             if (dist > highscore) {
                 highscore = dist;
-                try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
+                try {
+                    localStorage.setItem("wedding_run_hs", highscore);
+                } catch (e) {}
             }
+
+            // Экран смерти
             ctx.fillStyle = "rgba(0,0,0,0.8)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
             ctx.font = "bold 30px Arial";
             ctx.fillText("ИГРА ОКОНЧЕНА", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.font = "24px Arial";
             ctx.fillText("Результат: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 30);
             ctx.fillStyle = "#ff69b4";
             ctx.fillText("Нажми МЫШКОЙ или ПРОБЕЛ для рестарта", canvas.width / 2, canvas.height / 2 + 80);
