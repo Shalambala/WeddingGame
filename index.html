@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wedding Run - Mobile Fix</title>
+    <title>Spring in Mountains</title>
     <style>
         body { 
             margin: 0; 
             padding: 0; 
             overflow: hidden; 
-            /* Отключаем лишние касания и скролл на мобилках */
+            /* Критично для мобильных: отключает скролл и жесты браузера */
             touch-action: none; 
             background-image: url('background.jpg'); 
             background-size: 100% 100%; 
@@ -69,6 +69,7 @@
         highscore = localStorage.getItem("wedding_run_hs") || 0;
     } catch (e) {}
 
+    // Загрузка ресурсов
     const cyclistImg = new Image();
     cyclistImg.src = 'jumpover.png'; 
 
@@ -82,18 +83,17 @@
         canvas.height = window.innerHeight;
         ground = canvas.height - 60;
         if (!active) p.y = ground - p.h;
-        // На мобилках персонаж должен быть чуть меньше
+        
         if(window.innerWidth < 600) {
-            p.w = 50; p.h = 50;
+            p.w = 55; p.h = 55;
         }
     }
 
-    // ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ ТАЧПАДА И МЫШКИ
+    // Обработка прыжка и старта
     function handleAction(e) {
-        // Предотвращаем стандартное поведение (скролл, зум)
+        // Запрещаем стандартные действия браузера (важно для iOS)
         if (e.cancelable) e.preventDefault();
 
-        // Если клавиатура — только Пробел
         if (e.type === "keydown" && e.code !== "Space") return;
 
         if (!active) {
@@ -103,72 +103,77 @@
         } else if (over) {
             window.location.reload();
         } else if (p.canJump) {
-            p.dy = -16; // Чуть уменьшил силу прыжка для баланса
+            p.dy = -17; 
             p.canJump = false;
         }
     }
 
-    // Добавляем поддержку касания пальцем
+    // pointerdown работает и для тапа, и для клика мыши
     window.addEventListener("pointerdown", handleAction, { passive: false });
-    //window.addEventListener("touchstart", handleAction, { passive: false });
-    window.addEventListener("mousedown", handleAction);
     window.addEventListener("keydown", handleAction);
-    
     window.addEventListener("resize", resize);
+    
     resize();
 
     setInterval(() => {
         if (!active || over) return;
-        obs.push({ x: canvas.width, w: 40, h: 40 });
-        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 100, r: 15 });
-    }, 1500);
+        obs.push({ x: canvas.width, w: 45, h: 45 });
+        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 110, r: 18 });
+    }, 1400);
 
     function loop() {
         if (!active) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        ctx.fillStyle = "rgba(255, 105, 180, 0.7)";
-        ctx.fillRect(0, ground, canvas.width, 10);
+        // Линия земли
+        ctx.fillStyle = "rgba(255, 105, 180, 0.6)";
+        ctx.fillRect(0, ground, canvas.width, 8);
 
         if (!over) {
-            p.dy += 0.8;
+            p.dy += 0.85;
             p.y += p.dy;
             if (p.y > ground - p.h) {
                 p.y = ground - p.h;
                 p.dy = 0;
                 p.canJump = true;
             }
-            dist += speed * 0.01;
-            speed += 0.001;
+            dist += speed * 0.012;
+            speed += 0.0015;
         }
 
+        // Отрисовка игрока (Велосипедист)
         if (cyclistImg.complete && cyclistImg.naturalWidth !== 0) {
             ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
         } else {
-            ctx.fillStyle = "yellow";
+            ctx.fillStyle = "#ffdd00";
             ctx.fillRect(p.x, p.y, p.w, p.h);
         }
 
+        // Отрисовка препятствий (Голубые квадраты)
         ctx.fillStyle = "#00BFFF";
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
             ctx.fillRect(o.x, ground - o.h, o.w, o.h);
+            
+            // Столкновение
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
                 over = true;
             }
         });
 
+        // Отрисовка монет
         cl.forEach((c, i) => {
             if (!over) c.x -= speed;
             if (coinImg.complete && coinImg.naturalWidth !== 0) {
                 ctx.drawImage(coinImg, c.x - c.r, c.y - c.r, c.r*2, c.r*2);
             } else {
                 ctx.fillStyle = "#FFD700";
-                ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill();
             }
+            
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
-            if (!over && Math.sqrt(dx*dx + dy*dy) < 40) {
+            if (!over && Math.sqrt(dx*dx + dy*dy) < 45) {
                 coins++;
                 cl.splice(i, 1);
             }
@@ -183,15 +188,16 @@
                 highscore = dist;
                 try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
             }
-            ctx.fillStyle = "rgba(0,0,0,0.8)";
+            ctx.fillStyle = "rgba(0,0,0,0.85)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
-            ctx.font = "bold 24px Arial";
+            ctx.font = "bold 26px Arial";
             ctx.fillText("ИГРА ОКОНЧЕНА", canvas.width / 2, canvas.height / 2 - 20);
-            ctx.fillText("Результат: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 20);
+            ctx.font = "20px Arial";
+            ctx.fillText("Дистанция: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 20);
             ctx.fillStyle = "#ff69b4";
-            ctx.fillText("Тапни для рестарта", canvas.width / 2, canvas.height / 2 + 60);
+            ctx.fillText("Тапни для рестарта", canvas.width / 2, canvas.height / 2 + 70);
         }
         requestAnimationFrame(loop);
     }
