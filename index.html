@@ -9,19 +9,26 @@
             margin: 0; 
             padding: 0; 
             overflow: hidden; 
+            /* Предотвращаем системные жесты Safari */
             touch-action: none; 
-            -webkit-touch-callout: none; /* Отключает контекстное меню на iOS */
-            -webkit-user-select: none;   /* Отключает выделение текста */
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none;   
             user-select: none;
             background-image: url('background.jpg'); 
-            background-size: 100% 100%; 
+            background-size: cover; 
             background-position: center; 
             background-repeat: no-repeat;
             background-attachment: fixed;
             background-color: #87CEEB; 
             font-family: sans-serif;
         }
-        canvas { display: block; background: transparent; }
+        canvas { 
+            display: block; 
+            background: transparent; 
+            touch-action: none;
+            /* Убираем серую вспышку при нажатии в Safari */
+            -webkit-tap-highlight-color: transparent; 
+        }
         #ui { 
             position: fixed; top: 10px; left: 10px; color: white; 
             font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px #000;
@@ -77,7 +84,7 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         ground = canvas.height - 60;
-        if (!active) p.y = ground - p.h;
+        if (!active || over) p.y = ground - p.h;
     }
 
     function jump() {
@@ -87,46 +94,51 @@
         }
     }
 
-    function startGame() {
-        if (!active) {
-            active = true;
-            startDiv.style.display = "none";
-            loop();
-        } else if (over) {
-            window.location.reload();
-        }
+    function initGame() {
+        // Сброс всех параметров вместо перезагрузки страницы
+        active = true;
+        over = false;
+        coins = 0;
+        dist = 0;
+        speed = 7;
+        obs = [];
+        cl = [];
+        p.y = ground - p.h;
+        p.dy = 0;
+        startDiv.style.display = "none";
     }
 
-    // УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК ДЛЯ IOS
+    // Обработчик для iOS и тач-устройств
     function handleTouch(e) {
-        if (e.cancelable) e.preventDefault();
-        
-        if (!active || over) {
-            startGame();
-        } else {
+        // Запрещаем дефолтное поведение только если игра идет, 
+        // чтобы не ломать системные жесты в меню
+        if (active && !over) {
+            if (e.cancelable) e.preventDefault();
             jump();
+        } else {
+            initGame();
         }
     }
 
-    // Слушатели специально для iPhone
+    // Слушатели событий
     window.addEventListener("touchstart", handleTouch, { passive: false });
     
-    // Слушатели для ПК
     window.addEventListener("mousedown", (e) => {
-        if (e.button === 0) { // Только левая кнопка
-            if (!active || over) startGame(); else jump();
+        if (e.button === 0) {
+            if (!active || over) initGame(); else jump();
         }
     });
     
     window.addEventListener("keydown", (e) => {
         if (e.code === "Space") {
-            if (!active || over) startGame(); else jump();
+            if (!active || over) initGame(); else jump();
         }
     });
 
     window.addEventListener("resize", resize);
     resize();
 
+    // Интервал создания препятствий
     setInterval(() => {
         if (!active || over) return;
         obs.push({ x: canvas.width, w: 45, h: 45 });
@@ -134,9 +146,14 @@
     }, 1400);
 
     function loop() {
-        if (!active) return;
+        if (!active) {
+            requestAnimationFrame(loop);
+            return;
+        }
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // Отрисовка земли
         ctx.fillStyle = "rgba(255, 105, 180, 0.6)";
         ctx.fillRect(0, ground, canvas.width, 8);
 
@@ -152,6 +169,7 @@
             speed += 0.0015;
         }
 
+        // Игрок
         if (cyclistImg.complete && cyclistImg.naturalWidth !== 0) {
             ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
         } else {
@@ -159,13 +177,21 @@
             ctx.fillRect(p.x, p.y, p.w, p.h);
         }
 
+        // Препятствия
         ctx.fillStyle = "#00BFFF";
-        obs.forEach((o, i) => {
+        for (let i = obs.length - 1; i >= 0; i--) {
+            let o = obs[i];
             if (!over) o.x -= speed;
             ctx.fillRect(o.x, ground - o.h, o.w, o.h);
+            
+            // Коллизия
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
-        });
+            
+            // Удаление ушедших за экран
+            if (o.x + o.w < 0) obs.splice(i, 1);
+        }
 
+        // Монеты
         cl.forEach((c, i) => {
             if (!over) c.x -= speed;
             if (coinImg.complete && coinImg.naturalWidth !== 0) {
@@ -174,6 +200,7 @@
                 ctx.fillStyle = "#FFD700";
                 ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill();
             }
+            
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
             if (!over && Math.sqrt(dx*dx + dy*dy) < 45) {
@@ -182,6 +209,7 @@
             }
         });
 
+        // UI
         document.getElementById("c").innerText = coins;
         document.getElementById("d").innerText = Math.floor(dist);
         document.getElementById("hs").innerText = Math.floor(highscore);
@@ -204,6 +232,9 @@
         }
         requestAnimationFrame(loop);
     }
+    
+    // Запускаем цикл сразу, но он будет ждать active = true
+    loop();
 })();
 </script>
 </body>
