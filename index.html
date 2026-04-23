@@ -2,19 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Highscore Edition</title>
+    <title>Wedding Run - Рекорды и Исправленный Рестарт</title>
     <style>
         body { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
+            margin: 0; padding: 0; overflow: hidden; 
             background-image: url('https://i.ibb.co/R40qMKdn/bride-png.jpg'); 
-            background-size: 100% 100%; 
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            background-position: center;
-            background-color: #87CEEB;
-            font-family: sans-serif;
+            background-size: 100% 100%; background-repeat: no-repeat;
+            background-attachment: fixed; background-position: center;
+            background-color: #87CEEB; font-family: sans-serif;
         }
         canvas { display: block; }
         #ui { 
@@ -39,7 +34,7 @@
 
 <div id="start">
     <h1 style="color: #ff69b4; font-size: 40px; margin: 0;">👰 СВАДЕБНЫЙ ЗАБЕГ</h1>
-    <p>Нажми СЮДА для старта</p>
+    <p>Нажми СЮДА или ПРОБЕЛ для старта</p>
 </div>
 
 <canvas id="g"></canvas>
@@ -57,13 +52,33 @@
     let ground, speed = 7;
     let obs = [], cl = [];
 
-    // Работа с рекордом (Безопасный доступ)
+    // Загрузка рекорда
     let highscore = 0;
     try {
-        highscore = localStorage.getItem("wedding_run_highscore") || 0;
-    } catch (e) {
-        console.warn("Доступ к localStorage ограничен на локальном диске.");
+        highscore = localStorage.getItem("wedding_run_hs") || 0;
+    } catch (e) { console.warn("LocalStorage недоступен"); }
+
+    const obstacleImg = new Image();
+    obstacleImg.src = 'https://i.ibb.co/9kS7m9yD/bc36vHv.png'; 
+
+    const p = { x: 80, y: 0, w: 50, h: 70, dy: 0, canJump: false };
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ground = canvas.height - 60;
+        if (!active) p.y = ground - p.h;
     }
 
-    // Изображение препятствия
-    const obstacle
+    function startGame() {
+        if (!active) {
+            active = true;
+            startDiv.style.display = "none";
+            loop();
+        } else if (over) {
+            location.reload(); // Перезапуск при проигрыше
+        }
+    }
+
+    // Обработка ввода (Мышь и Пробел)
+    window.addEventListener("mousedown", (e) => {
