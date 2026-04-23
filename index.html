@@ -2,20 +2,20 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Wedding Run - Final Version</title>
+    <title>Wedding Run - Custom Assets Edition</title>
     <style>
         body { 
-        margin: 0; 
-        padding: 0; 
-        overflow: hidden; 
-        background-image: url('background.jpg'); 
-        /* Растягивает картинку ровно по размеру окна без обрезки */
-        background-size: 100% 100%; 
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        background-position: center;
-        background-color: #87CEEB; 
-        font-family: sans-serif;
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            /* Локальный фон на весь экран */
+            background-image: url('background.jpg'); 
+            background-size: 100% 100%; 
+            background-position: center; 
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-color: #87CEEB; 
+            font-family: sans-serif;
         }
         canvas { 
             display: block; 
@@ -42,7 +42,7 @@
 </div>
 
 <div id="start">
-    <h1 style="color: #ff69b4; font-size: 40px; margin: 0;">👰 СВАДЕБНЫЙ ЗАБЕГ</h1>
+    <h1 style="color: #ff69b4; font-size: 40px; margin: 0;">⛰️ Весна в горах</h1>
     <p>Нажми СЮДА или ПРОБЕЛ для старта</p>
 </div>
 
@@ -61,20 +61,23 @@
     let ground, speed = 7;
     let obs = [], cl = [];
 
-    // Загрузка рекорда из памяти браузера
     let highscore = 0;
     try {
         highscore = localStorage.getItem("wedding_run_hs") || 0;
-    } catch (e) {
-        console.warn("LocalStorage недоступен (это нормально при запуске файла с диска)");
-    }
+    } catch (e) {}
 
-    // Картинка препятствия
-    const obstacleImg = new Image();
-    obstacleImg.src = 'jumpover.png'; 
+    // --- 1. ЗАГРУЗКА ЛОКАЛЬНЫХ КАРТИНОК ---
+    
+    // Велосипедист (Персонаж)
+    const cyclistImg = new Image();
+    cyclistImg.src = 'jumpover.png'; 
 
-    // Параметры персонажа (классическая розовая невеста)
-    const p = { x: 80, y: 0, w: 50, h: 70, dy: 0, canJump: false };
+    // ВАША КАРТИНКА МОНЕТКИ
+    const coinImg = new Image();
+    coinImg.src = 'coin.png'; // Убедитесь, что файл с таким именем лежит в папке!
+
+    // Параметры персонажа
+    const p = { x: 80, y: 0, w: 70, h: 70, dy: 0, canJump: false };
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -83,17 +86,16 @@
         if (!active) p.y = ground - p.h;
     }
 
-    // Универсальная функция действия (старт, прыжок, рестарт)
     function handleAction(e) {
         if (e.type === "keydown" && e.code !== "Space") return;
-        if (e.type === "keydown") e.preventDefault(); // чтобы пробел не скроллил страницу
+        if (e.type === "keydown") e.preventDefault();
 
         if (!active) {
             active = true;
             startDiv.style.display = "none";
             loop();
         } else if (over) {
-            window.location.reload(); // Полная перезагрузка для сброса всех параметров
+            window.location.reload();
         } else if (p.canJump) {
             p.dy = -18;
             p.canJump = false;
@@ -105,23 +107,23 @@
     window.addEventListener("resize", resize);
     resize();
 
-    // Генерация препятствий и монет
     setInterval(() => {
         if (!active || over) return;
+        // Препятствие
         obs.push({ x: canvas.width, w: 50, h: 50 });
-        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 120, r: 10 });
+        // Монета (теперь используем `r` для масштабирования картинки)
+        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 120, r: 20 });
     }, 1500);
 
     function loop() {
         if (!active) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Рисуем пол (розовая линия)
+        // Пол
         ctx.fillStyle = "rgba(255, 105, 180, 0.7)";
         ctx.fillRect(0, ground, canvas.width, 10);
 
         if (!over) {
-            // Физика прыжка
             p.dy += 0.8;
             p.y += p.dy;
             if (p.y > ground - p.h) {
@@ -129,63 +131,63 @@
                 p.dy = 0;
                 p.canJump = true;
             }
-            // Увеличение дистанции и скорости
             dist += speed * 0.01;
             speed += 0.001;
         }
 
-        // Отрисовка игрока (розовый прямоугольник + фата)
-        ctx.fillStyle = "#ff69b4";
-        ctx.fillRect(p.x, p.y, p.w, p.h);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.6)"; // Белая фата
-        ctx.fillRect(p.x - 15, p.y + 10, 15, 40);
+        // Рисуем Велосипедиста (Персонаж)
+        if (cyclistImg.complete && cyclistImg.naturalWidth !== 0) {
+            ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
+        } else {
+            ctx.fillStyle = "yellow"; // Запасной вариант
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+        }
 
-        // Отрисовка препятствий (jumpover.png)
+        // Рисуем Голубые Квадраты (Препятствия)
+        ctx.fillStyle = "#00BFFF";
         obs.forEach((o, i) => {
             if (!over) o.x -= speed;
-            
-            if (obstacleImg.complete && obstacleImg.naturalWidth !== 0) {
-                ctx.drawImage(obstacleImg, o.x, ground - o.h, o.w, o.h);
-            } else {
-                ctx.fillStyle = "#333"; // Запасной вариант (серый блок)
-                ctx.fillRect(o.x, ground - o.h, o.w, o.h);
-            }
-
-            // Проверка столкновения
+            ctx.fillRect(o.x, ground - o.h, o.w, o.h);
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) {
                 over = true;
             }
         });
 
-        // Отрисовка монет
+        // --- 3. РИСУЕМ ВАШУ КАРТИНКУ МОНЕТКИ (coin.png) ---
         cl.forEach((c, i) => {
             if (!over) c.x -= speed;
-            ctx.fillStyle = "#FFD700";
-            ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+
+            // Если картинка монетки загрузилась
+            if (coinImg.complete && coinImg.naturalWidth !== 0) {
+                // Картинка рисуется от центра, так же как раньше рисовался круг.
+                // c.r * 2 — это будет ширина и высота картинки.
+                const imgSize = c.r * 2;
+                ctx.drawImage(coinImg, c.x - c.r, c.y - c.r, imgSize, imgSize);
+            } else {
+                // Запасной вариант (желтый круг), если картинка не найдена
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+            }
             
+            // Проверка сбора монетки
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
-            if (!over && Math.sqrt(dx*dx + dy*dy) < 40) {
+            // Условие коллизии осталось прежним, оно работает для центра монеты
+            if (!over && Math.sqrt(dx*dx + dy*dy) < (p.w/2 + c.r)) {
                 coins++;
                 cl.splice(i, 1);
             }
         });
 
-        // Обновление текстового интерфейса
         document.getElementById("c").innerText = coins;
         document.getElementById("d").innerText = Math.floor(dist);
         document.getElementById("hs").innerText = Math.floor(highscore);
 
         if (over) {
-            // Сохранение рекорда при проигрыше
             if (dist > highscore) {
                 highscore = dist;
-                try {
-                    localStorage.setItem("wedding_run_hs", highscore);
-                } catch (e) {}
+                try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
             }
-
-            // Экран смерти
             ctx.fillStyle = "rgba(0,0,0,0.8)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
