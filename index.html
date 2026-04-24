@@ -84,10 +84,13 @@
 
     try { highscore = localStorage.getItem("wedding_run_hs") || 0; } catch (e) {}
 
+    // ЗАГРУЗКА КАРТИНОК
     const cyclistImg = new Image();
-    cyclistImg.src = 'jumpover.png'; 
+    cyclistImg.src = 'cyclist.png'; 
     const coinImg = new Image();
     coinImg.src = 'coin.png'; 
+    const obsImg = new Image(); // Новая картинка для препятствий
+    obsImg.src = 'obstacle.png';
 
     const p = { x: 50, y: 0, w: 55, h: 55, dy: 0, canJump: false };
 
@@ -118,11 +121,8 @@
         startDiv.style.display = "none";
     }
 
-    // Обработка клика/тача
     function handleAction(e) {
-        // Предотвращаем стандартные действия браузера
         if (e.cancelable) e.preventDefault();
-
         if (!active || over) {
             resetState();
         } else {
@@ -130,7 +130,6 @@
         }
     }
 
-    // Слушаем события и на документе, и на блоке старта для надежности
     document.addEventListener("touchstart", handleAction, { passive: false });
     document.addEventListener("mousedown", (e) => {
         if (e.button === 0) handleAction(e);
@@ -141,11 +140,7 @@
     });
 
     window.addEventListener("resize", resize);
-    
-    // Инициализация размеров
     resize();
-    // Повторный вызов через долю секунды, так как iOS Safari 
-    // не сразу отдает корректные размеры innerHeight
     setTimeout(resize, 300);
 
     setInterval(() => {
@@ -187,11 +182,18 @@
         }
 
         // Препятствия
-        ctx.fillStyle = "#00BFFF";
         for (let i = obs.length - 1; i >= 0; i--) {
             let o = obs[i];
             if (!over) o.x -= speed;
-            ctx.fillRect(o.x, ground - o.h, o.w, o.h);
+            
+            // Отрисовка картинки препятствия
+            if (obsImg.complete && obsImg.naturalWidth > 0) {
+                ctx.drawImage(obsImg, o.x, ground - o.h, o.w, o.h);
+            } else {
+                ctx.fillStyle = "#00BFFF";
+                ctx.fillRect(o.x, ground - o.h, o.w, o.h);
+            }
+
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
             if (o.x + o.w < 0) obs.splice(i, 1);
         }
