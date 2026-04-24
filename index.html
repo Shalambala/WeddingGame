@@ -3,62 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Spring in Mountains - Final iOS Fix</title>
+    <title>Spring in Mountains - Random Edition</title>
     <style>
-        /* Блокируем любые системные движения страницы */
         html, body { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%;
-            height: 100%;
-            overflow: hidden; 
-            position: fixed; /* Критично для iOS: предотвращает "прыгающий" скролл */
-            touch-action: none; 
-            -webkit-user-select: none;
-            user-select: none;
-            background-color: #87CEEB;
-            font-family: sans-serif;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; position: fixed; touch-action: none; 
+            -webkit-user-select: none; user-select: none;
+            background-color: #87CEEB; font-family: sans-serif;
         }
-
         #bg-layer {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0;
             background-image: url('background.jpg'); 
-            background-size: cover; 
-            background-position: center;
-            z-index: -1;
+            background-size: 100% 100%; 
+            background-position: bottom center;
+            background-repeat: no-repeat; z-index: -1;
         }
-
-        canvas { 
-            display: block; 
-            touch-action: none;
-            -webkit-tap-highlight-color: transparent; 
-        }
-
+        canvas { display: block; touch-action: none; -webkit-tap-highlight-color: transparent; }
         #ui { 
             position: fixed; top: env(safe-area-inset-top, 10px); left: 10px; 
             color: white; font-size: 18px; font-weight: bold; 
-            text-shadow: 2px 2px 4px #000;
-            pointer-events: none; z-index: 10;
+            text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10;
         }
-
         #start { 
             position: fixed; inset: 0; background: rgba(0,0,0,0.8); 
             color: white; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; z-index: 100;
-            text-align: center; padding: 20px;
-            cursor: pointer;
+            text-align: center; padding: 20px; cursor: pointer;
         }
     </style>
 </head>
 <body>
 
 <div id="bg-layer"></div>
-
 <div id="ui">
-    Монеты: <span id="c">0</span> | 
-    Дистанция: <span id="d">0</span> м | 
-    Рекорд: <span id="hs">0</span> м
+    Монеты: <span id="c">0</span> | Дистанция: <span id="d">0</span> м | Рекорд: <span id="hs">0</span> м
 </div>
 
 <div id="start">
@@ -76,21 +54,19 @@
     
     let active = false;
     let over = false;
-    let coins = 0;
-    let dist = 0;
-    let ground, speed = 7;
+    let coins = 0, dist = 0, ground, speed = 7;
     let obs = [], cl = [];
     let highscore = 0;
 
+    // Таймеры для рандома
+    let nextObsTime = 0;
+    let nextCoinTime = 0;
+
     try { highscore = localStorage.getItem("wedding_run_hs") || 0; } catch (e) {}
 
-    // ЗАГРУЗКА КАРТИНОК
-    const cyclistImg = new Image();
-    cyclistImg.src = 'cyclist.png'; 
-    const coinImg = new Image();
-    coinImg.src = 'coin.png'; 
-    const obsImg = new Image(); // Новая картинка для препятствий
-    obsImg.src = 'obstacle.png';
+    const cyclistImg = new Image(); cyclistImg.src = 'cyclist.png'; 
+    const coinImg = new Image(); coinImg.src = 'coin.png'; 
+    const obsImg = new Image(); obsImg.src = 'obstacle.png';
 
     const p = { x: 50, y: 0, w: 55, h: 55, dy: 0, canJump: false };
 
@@ -101,123 +77,92 @@
         if (!active || over) p.y = ground - p.h;
     }
 
-    function jump() {
-        if (p.canJump && active && !over) {
-            p.dy = -17;
-            p.canJump = false;
-        }
-    }
-
     function resetState() {
         active = true;
         over = false;
-        coins = 0;
-        dist = 0;
-        speed = 7;
-        obs = [];
-        cl = [];
+        coins = 0; dist = 0; speed = 7;
+        obs = []; cl = [];
         p.dy = 0;
         p.y = ground - p.h;
+        // Устанавливаем время первого появления
+        nextObsTime = Date.now() + 1000;
+        nextCoinTime = Date.now() + 500;
         startDiv.style.display = "none";
     }
 
     function handleAction(e) {
         if (e.cancelable) e.preventDefault();
-        if (!active || over) {
-            resetState();
-        } else {
-            jump();
-        }
+        if (!active || over) resetState();
+        else if (p.canJump) { p.dy = -17; p.canJump = false; }
     }
 
     document.addEventListener("touchstart", handleAction, { passive: false });
-    document.addEventListener("mousedown", (e) => {
-        if (e.button === 0) handleAction(e);
-    });
-
-    window.addEventListener("keydown", (e) => {
-        if (e.code === "Space") handleAction(e);
-    });
-
+    document.addEventListener("mousedown", (e) => { if (e.button === 0) handleAction(e); });
+    window.addEventListener("keydown", (e) => { if (e.code === "Space") handleAction(e); });
     window.addEventListener("resize", resize);
     resize();
-    setTimeout(resize, 300);
-
-    setInterval(() => {
-        if (!active || over) return;
-        obs.push({ x: canvas.width, w: 45, h: 45 });
-        if (Math.random() > 0.5) cl.push({ x: canvas.width + 100, y: ground - 110, r: 18 });
-    }, 1400);
 
     function loop() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (!active) {
-            requestAnimationFrame(loop);
-            return;
-        }
+        if (!active) { requestAnimationFrame(loop); return; }
 
         // Земля
         ctx.fillStyle = "rgba(255, 105, 180, 0.6)";
         ctx.fillRect(0, ground, canvas.width, 8);
 
         if (!over) {
+            // Гравитация и движение
             p.dy += 0.85;
             p.y += p.dy;
-            if (p.y > ground - p.h) {
-                p.y = ground - p.h;
-                p.dy = 0;
-                p.canJump = true;
-            }
+            if (p.y > ground - p.h) { p.y = ground - p.h; p.dy = 0; p.canJump = true; }
             dist += speed * 0.012;
             speed += 0.0015;
+
+            // --- ЛОГИКА РАНДОМНОГО СПАВНА ---
+            let now = Date.now();
+
+            // Появление кустов (от 1 до 2.5 сек, быстрее при росте скорости)
+            if (now > nextObsTime) {
+                obs.push({ x: canvas.width, w: 45, h: 45 });
+                let wait = Math.random() * 1500 + 1000; 
+                nextObsTime = now + (wait / (speed / 7)); 
+            }
+
+            // Появление монет (от 0.5 до 3 сек)
+            if (now > nextCoinTime) {
+                // Рандомная высота: 0 - на земле, 100 - высоко в воздухе
+                let randomY = ground - (Math.random() * 110 + 30);
+                cl.push({ x: canvas.width, y: randomY, r: 18 });
+                nextCoinTime = now + (Math.random() * 2500 + 500);
+            }
         }
 
-        // Персонаж
-        if (cyclistImg.complete && cyclistImg.naturalWidth > 0) {
-            ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
-        } else {
-            ctx.fillStyle = "#ffdd00";
-            ctx.fillRect(p.x, p.y, p.w, p.h);
-        }
+        // Отрисовка персонажа
+        if (cyclistImg.complete && cyclistImg.naturalWidth > 0) ctx.drawImage(cyclistImg, p.x, p.y, p.w, p.h);
+        else { ctx.fillStyle = "#ffdd00"; ctx.fillRect(p.x, p.y, p.w, p.h); }
 
-        // Препятствия
+        // Отрисовка препятствий
         for (let i = obs.length - 1; i >= 0; i--) {
             let o = obs[i];
             if (!over) o.x -= speed;
-            
-            // Отрисовка картинки препятствия
-            if (obsImg.complete && obsImg.naturalWidth > 0) {
-                ctx.drawImage(obsImg, o.x, ground - o.h, o.w, o.h);
-            } else {
-                ctx.fillStyle = "#00BFFF";
-                ctx.fillRect(o.x, ground - o.h, o.w, o.h);
-            }
+            if (obsImg.complete && obsImg.naturalWidth > 0) ctx.drawImage(obsImg, o.x, ground - o.h, o.w, o.h);
+            else { ctx.fillStyle = "#00BFFF"; ctx.fillRect(o.x, ground - o.h, o.w, o.h); }
 
             if (p.x < o.x + o.w && p.x + p.w > o.x && p.y + p.h > ground - o.h) over = true;
             if (o.x + o.w < 0) obs.splice(i, 1);
         }
 
-        // Монеты
+        // Отрисовка монет
         for (let i = cl.length - 1; i >= 0; i--) {
             let c = cl[i];
             if (!over) c.x -= speed;
-            
-            if (coinImg.complete && coinImg.naturalWidth > 0) {
-                ctx.drawImage(coinImg, c.x - c.r, c.y - c.r, c.r*2, c.r*2);
-            } else {
-                ctx.fillStyle = "#FFD700";
-                ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill();
-            }
+            if (coinImg.complete && coinImg.naturalWidth > 0) ctx.drawImage(coinImg, c.x - c.r, c.y - c.r, c.r*2, c.r*2);
+            else { ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill(); }
 
             let dx = (p.x + p.w/2) - c.x;
             let dy = (p.y + p.h/2) - c.y;
-            if (!over && Math.sqrt(dx*dx + dy*dy) < 45) {
-                coins++;
-                cl.splice(i, 1);
-            } else if (c.x + c.r < 0) {
-                cl.splice(i, 1);
-            }
+            if (!over && Math.sqrt(dx*dx + dy*dy) < 45) { coins++; cl.splice(i, 1); }
+            else if (c.x + c.r < 0) cl.splice(i, 1);
         }
 
         document.getElementById("c").innerText = coins;
@@ -225,20 +170,14 @@
         document.getElementById("hs").innerText = Math.floor(highscore);
 
         if (over) {
-            if (dist > highscore) {
-                highscore = dist;
-                try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {}
-            }
+            if (dist > highscore) { highscore = dist; try { localStorage.setItem("wedding_run_hs", highscore); } catch (e) {} }
             ctx.fillStyle = "rgba(0,0,0,0.85)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "white";
-            ctx.textAlign = "center";
-            ctx.font = "bold 26px Arial";
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 26px Arial";
             ctx.fillText("ИГРА ОКОНЧЕНА", canvas.width / 2, canvas.height / 2 - 20);
             ctx.font = "20px Arial";
             ctx.fillText("Дистанция: " + Math.floor(dist) + " м", canvas.width / 2, canvas.height / 2 + 20);
-            ctx.fillStyle = "#ff69b4";
-            ctx.fillText("Нажми для рестарта", canvas.width / 2, canvas.height / 2 + 70);
+            ctx.fillStyle = "#ff69b4"; ctx.fillText("Нажми для рестарта", canvas.width / 2, canvas.height / 2 + 70);
         }
         requestAnimationFrame(loop);
     }
